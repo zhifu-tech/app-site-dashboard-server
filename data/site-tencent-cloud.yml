@@ -1,0 +1,25 @@
+name: 腾讯云
+url: https://cloud.tencent.com/
+icon: ☁️
+description: 腾讯云是腾讯公司推出的云计算服务平台，提供云服务器、云数据库、云存储、CDN、人工智能、大数据等全方位的云服务。适用于企业数字化转型、应用开发部署、数据存储分析等多种场景，助力企业快速上云。
+links:
+  - text: 产品文档
+    url: https://cloud.tencent.com/document/product
+  - text: 开发者中心
+    url: https://cloud.tencent.com/developer
+  - text: 控制台
+    url: https://console.cloud.tencent.com/
+  - text: SSL证书
+    url: https://cloud.tencent.com/ssl
+  - text: DNS域名解析
+    url: https://console.cloud.tencent.com/cns
+tags:
+  - 云服务
+  - 云计算
+  - 腾讯云
+  - 基础设施
+  - 服务器
+  - 存储
+  - CDN
+  - 企业服务
+  - Cloud

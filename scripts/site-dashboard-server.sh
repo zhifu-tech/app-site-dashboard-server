@@ -278,13 +278,107 @@ cmd_docker_deploy() {
 # 数据同步功能（双向同步）
 # ============================================
 
+# 检测 Git 变更的文件
+# 参数：data_dir - 数据目录路径
+# 返回：通过全局变量返回变更文件列表
+detect_git_changes() {
+  local data_dir="$1"
+  GIT_ADDED_FILES=""
+  GIT_MODIFIED_FILES=""
+  GIT_DELETED_FILES=""
+  GIT_USE_GIT=false
+  
+  # 检查是否在 Git 仓库中
+  if ! git -C "$PROJECT_ROOT" rev-parse --git-dir > /dev/null 2>&1; then
+    return 1
+  fi
+  
+  GIT_USE_GIT=true
+  
+  # 获取相对于项目根目录的 data 目录路径
+  local rel_data_dir=$(cd "$PROJECT_ROOT" && realpath --relative-to="$PROJECT_ROOT" "$data_dir" 2>/dev/null || echo "data")
+  
+  # 检测所有变更的文件（包括工作区和暂存区）
+  cd "$PROJECT_ROOT" || return 1
+  while IFS= read -r line; do
+    if [ -z "$line" ]; then
+      continue
+    fi
+    
+    local status="${line:0:2}"
+    local file="${line:3}"
+    
+    # 只处理 data 目录下的 yml 文件
+    if [[ "$file" != ${rel_data_dir}/site-*.yml ]]; then
+      continue
+    fi
+    
+    local full_path="$PROJECT_ROOT/$file"
+    
+    case "$status" in
+      "??")
+        # 未跟踪的文件（新增）
+        if [ -f "$full_path" ]; then
+          GIT_ADDED_FILES="${GIT_ADDED_FILES}${full_path}"$'\n'
+        fi
+        ;;
+      " M"|"M "|"MM")
+        # 已修改的文件
+        if [ -f "$full_path" ]; then
+          GIT_MODIFIED_FILES="${GIT_MODIFIED_FILES}${full_path}"$'\n'
+        fi
+        ;;
+      "A "|"AM")
+        # 已添加到暂存区的文件（新增或修改）
+        if [ -f "$full_path" ]; then
+          # 检查是否是新文件
+          if git -C "$PROJECT_ROOT" ls-files --error-unmatch "$file" > /dev/null 2>&1; then
+            GIT_MODIFIED_FILES="${GIT_MODIFIED_FILES}${full_path}"$'\n'
+          else
+            GIT_ADDED_FILES="${GIT_ADDED_FILES}${full_path}"$'\n'
+          fi
+        fi
+        ;;
+      " D"|"D "|"DD")
+        # 已删除的文件
+        GIT_DELETED_FILES="${GIT_DELETED_FILES}${file}"$'\n'
+        ;;
+    esac
+  done < <(git -C "$PROJECT_ROOT" status --porcelain "$rel_data_dir/site-*.yml" 2>/dev/null)
+  
+  # 清理换行符
+  GIT_ADDED_FILES=$(echo "$GIT_ADDED_FILES" | grep -v '^$')
+  GIT_MODIFIED_FILES=$(echo "$GIT_MODIFIED_FILES" | grep -v '^$')
+  GIT_DELETED_FILES=$(echo "$GIT_DELETED_FILES" | grep -v '^$')
+  
+  return 0
+}
+
 # 数据同步主函数
 cmd_sync_data() {
   local direction="${1:-help}"
+  local force_flag=false
+  
+  # 解析参数，支持 --force 或 -f
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force|-f)
+        force_flag=true
+        shift
+        ;;
+      *)
+        print_error "未知参数: $1"
+        echo ""
+        echo "使用 'sync-data help' 查看帮助"
+        exit 1
+        ;;
+    esac
+  done
   
   case "$direction" in
     up|to-server)
-      cmd_sync_data_to_server
+      cmd_sync_data_to_server "$force_flag"
       ;;
     down|from-server)
       cmd_sync_data_from_server
@@ -293,15 +387,23 @@ cmd_sync_data() {
       echo -e "${CYAN}数据同步 - 使用帮助${NC}"
       echo ""
       echo -e "${YELLOW}用法:${NC}"
-      echo "  ./scripts/site-dashboard-server.sh sync-data [direction]"
+      echo "  ./scripts/site-dashboard-server.sh sync-data [direction] [options]"
       echo ""
       echo -e "${YELLOW}方向:${NC}"
       echo -e "  ${GREEN}up${NC} 或 ${GREEN}to-server${NC}    将本地数据同步到服务器"
       echo -e "  ${GREEN}down${NC} 或 ${GREEN}from-server${NC}  将服务器数据同步回本地"
       echo ""
+      echo -e "${YELLOW}选项:${NC}"
+      echo -e "  ${GREEN}--force${NC} 或 ${GREEN}-f${NC}    强制同步所有文件（忽略 Git 变更检测）"
+      echo ""
       echo -e "${YELLOW}示例:${NC}"
       echo "  ./scripts/site-dashboard-server.sh sync-data up"
+      echo "  ./scripts/site-dashboard-server.sh sync-data up --force"
       echo "  ./scripts/site-dashboard-server.sh sync-data down"
+      echo ""
+      echo -e "${CYAN}说明:${NC}"
+      echo "  - 默认情况下，只同步 Git 中变更的文件（新增、修改、删除）"
+      echo "  - 使用 --force 选项可以强制同步所有文件（适用于首次同步）"
       echo ""
       ;;
     *)
@@ -314,8 +416,14 @@ cmd_sync_data() {
 }
 
 # 同步数据到服务器（本地 → 服务器）
+# 参数：force - 是否强制同步所有文件（忽略 Git 变更检测）
 cmd_sync_data_to_server() {
+  local force="${1:-false}"
+  
   echo -e "${GREEN}同步数据到服务器...${NC}"
+  if [ "$force" = "true" ]; then
+    echo -e "${YELLOW}强制模式：将同步所有文件${NC}"
+  fi
   echo ""
   
   DATA_DIR="$PROJECT_ROOT/data"
@@ -326,6 +434,73 @@ cmd_sync_data_to_server() {
     exit 1
   fi
   
+  # 检测 Git 变更（如果不是强制模式）
+  local added_count=0
+  local modified_count=0
+  local deleted_count=0
+  local use_git=false
+  
+  if [ "$force" != "true" ]; then
+    echo -e "${YELLOW}检测 Git 变更...${NC}"
+    if detect_git_changes "$DATA_DIR"; then
+      use_git=true
+      # 安全地计算文件数量（处理空字符串和多行情况）
+      if [ -z "$GIT_ADDED_FILES" ] || [ "$GIT_ADDED_FILES" = "" ]; then
+        added_count=0
+      else
+        added_count=$(echo "$GIT_ADDED_FILES" | grep -v '^$' | wc -l | tr -d ' \n')
+        [ -z "$added_count" ] && added_count=0
+      fi
+      if [ -z "$GIT_MODIFIED_FILES" ] || [ "$GIT_MODIFIED_FILES" = "" ]; then
+        modified_count=0
+      else
+        modified_count=$(echo "$GIT_MODIFIED_FILES" | grep -v '^$' | wc -l | tr -d ' \n')
+        [ -z "$modified_count" ] && modified_count=0
+      fi
+      if [ -z "$GIT_DELETED_FILES" ] || [ "$GIT_DELETED_FILES" = "" ]; then
+        deleted_count=0
+      else
+        deleted_count=$(echo "$GIT_DELETED_FILES" | grep -v '^$' | wc -l | tr -d ' \n')
+        [ -z "$deleted_count" ] && deleted_count=0
+      fi
+      
+      # 确保所有计数都是数字
+      added_count=$((added_count + 0))
+      modified_count=$((modified_count + 0))
+      deleted_count=$((deleted_count + 0))
+    
+    echo -e "${BLUE}Git 变更统计:${NC}"
+    if [ "$added_count" -gt 0 ]; then
+      echo -e "  新增文件: ${GREEN}$added_count${NC}"
+      echo "$GIT_ADDED_FILES" | while IFS= read -r file; do
+        [ -n "$file" ] && echo -e "    ${GREEN}+${NC} $(basename "$file")"
+      done
+    fi
+    if [ "$modified_count" -gt 0 ]; then
+      echo -e "  修改文件: ${YELLOW}$modified_count${NC}"
+      echo "$GIT_MODIFIED_FILES" | while IFS= read -r file; do
+        [ -n "$file" ] && echo -e "    ${YELLOW}~${NC} $(basename "$file")"
+      done
+    fi
+    if [ "$deleted_count" -gt 0 ]; then
+      echo -e "  删除文件: ${RED}$deleted_count${NC}"
+      echo "$GIT_DELETED_FILES" | while IFS= read -r file; do
+        [ -n "$file" ] && echo -e "    ${RED}-${NC} $(basename "$file")"
+      done
+    fi
+    if [ "$added_count" -eq 0 ] && [ "$modified_count" -eq 0 ] && [ "$deleted_count" -eq 0 ]; then
+      echo -e "  ${BLUE}无变更（所有文件已提交到 Git）${NC}"
+    fi
+      echo ""
+    else
+      print_warning "不在 Git 仓库中，将同步所有文件"
+      echo ""
+    fi
+  else
+    echo -e "${BLUE}跳过 Git 变更检测（强制模式）${NC}"
+    echo ""
+  fi
+  
   # 统计本地数据文件
   YML_COUNT=$(find "$DATA_DIR" -name "site-*.yml" 2>/dev/null | wc -l | tr -d ' ')
   if [ "$YML_COUNT" -eq 0 ]; then
@@ -334,7 +509,7 @@ cmd_sync_data_to_server() {
     exit 1
   fi
   
-  echo -e "${YELLOW}本地数据文件: ${YML_COUNT} 个${NC}"
+  echo -e "${YELLOW}本地数据文件总数: ${YML_COUNT} 个${NC}"
   echo ""
   
   # 确保服务器上的数据目录存在
@@ -344,36 +519,81 @@ cmd_sync_data_to_server() {
     exit 1
   }
   
-  # 同步所有 YAML 文件
-  echo -e "${YELLOW}同步数据文件...${NC}"
-  scp $SSH_OPTIONS -P ${SERVER_PORT} "$DATA_DIR"/site-*.yml "$SSH_TARGET:$APP_DIR/data/" || {
-    print_error "数据文件同步失败"
+  # 根据 Git 变更决定同步策略（强制模式时跳过）
+  if [ "$force" = "true" ]; then
+    # 强制模式：同步所有文件
+    echo -e "${YELLOW}同步所有数据文件（强制模式）...${NC}"
+    scp $SSH_OPTIONS -P ${SERVER_PORT} "$DATA_DIR"/site-*.yml "$SSH_TARGET:$APP_DIR/data/" || {
+      print_error "数据文件同步失败"
+      echo ""
+      echo "手动同步命令:"
+      echo "  scp $SSH_OPTIONS -P ${SERVER_PORT} $DATA_DIR/site-*.yml $SSH_TARGET:$APP_DIR/data/"
+      exit 1
+    }
+  elif [ "$use_git" = true ] && ([ "$added_count" -gt 0 ] || [ "$modified_count" -gt 0 ] || [ "$deleted_count" -gt 0 ]); then
+    # 只同步变更的文件
+    echo -e "${YELLOW}同步变更的文件...${NC}"
+    local sync_count=0
+    
+    # 同步新增和修改的文件
+    for file in $GIT_ADDED_FILES $GIT_MODIFIED_FILES; do
+      if [ -n "$file" ] && [ -f "$file" ]; then
+        if scp $SSH_OPTIONS -P ${SERVER_PORT} "$file" "$SSH_TARGET:$APP_DIR/data/" 2>/dev/null; then
+          sync_count=$((sync_count + 1))
+          echo -e "  ${GREEN}✓${NC} $(basename "$file")"
+        else
+          print_error "同步失败: $(basename "$file")"
+        fi
+      fi
+    done
+    
+    # 删除服务器上已删除的文件
+    if [ "$deleted_count" -gt 0 ]; then
+      echo -e "${YELLOW}删除服务器上的文件...${NC}"
+      echo "$GIT_DELETED_FILES" | while IFS= read -r git_file; do
+        if [ -n "$git_file" ]; then
+          local filename=$(basename "$git_file")
+          if ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "rm -f $APP_DIR/data/$filename" 2>/dev/null; then
+            echo -e "  ${RED}✗${NC} $filename"
+          fi
+        fi
+      done
+    fi
+    
     echo ""
-    echo "手动同步命令:"
-    echo "  scp $SSH_OPTIONS -P ${SERVER_PORT} $DATA_DIR/site-*.yml $SSH_TARGET:$APP_DIR/data/"
-    exit 1
-  }
+    print_success "已同步 $sync_count 个变更文件"
+  else
+    # 同步所有文件（无 Git 或无可检测的变更）
+    echo -e "${YELLOW}同步所有数据文件...${NC}"
+    scp $SSH_OPTIONS -P ${SERVER_PORT} "$DATA_DIR"/site-*.yml "$SSH_TARGET:$APP_DIR/data/" || {
+      print_error "数据文件同步失败"
+      echo ""
+      echo "手动同步命令:"
+      echo "  scp $SSH_OPTIONS -P ${SERVER_PORT} $DATA_DIR/site-*.yml $SSH_TARGET:$APP_DIR/data/"
+      exit 1
+    }
+  fi
   
   # 验证同步结果
   echo -e "${YELLOW}验证同步结果...${NC}"
   REMOTE_COUNT=$(ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "ls -1 $APP_DIR/data/site-*.yml 2>/dev/null | wc -l | tr -d ' '")
   
-  if [ "$REMOTE_COUNT" -eq "$YML_COUNT" ]; then
-    print_success "数据同步成功！"
+  echo ""
+  echo -e "${YELLOW}同步统计:${NC}"
+  echo -e "  本地文件总数: ${GREEN}$YML_COUNT${NC}"
+  echo -e "  服务器文件总数: ${GREEN}$REMOTE_COUNT${NC}"
+  echo -e "  服务器路径: ${BLUE}$APP_DIR/data${NC}"
+  
+  if [ "$force" = "true" ]; then
     echo ""
-    echo -e "${YELLOW}同步统计:${NC}"
-    echo -e "  本地文件: ${GREEN}$YML_COUNT${NC}"
-    echo -e "  服务器文件: ${GREEN}$REMOTE_COUNT${NC}"
-    echo -e "  服务器路径: ${BLUE}$APP_DIR/data${NC}"
-  else
-    print_warning "数据文件数量不匹配"
+    echo -e "${CYAN}提示:${NC} 已使用强制模式同步所有文件"
+  elif [ "$use_git" = true ]; then
     echo ""
-    echo -e "  本地文件数: ${YELLOW}$YML_COUNT${NC}"
-    echo -e "  服务器文件数: ${YELLOW}$REMOTE_COUNT${NC}"
-    echo ""
-    echo "请检查服务器上的数据目录: $APP_DIR/data"
-    exit 1
+    echo -e "${CYAN}提示:${NC} 基于 Git 变更检测，只同步了变更的文件"
+    echo -e "${CYAN}如需同步所有文件，请使用 ${YELLOW}--force${CYAN} 选项或先提交所有变更到 Git${NC}"
   fi
+  
+  print_success "数据同步成功！"
 }
 
 # 同步数据回本地（服务器 → 本地，智能合并）
@@ -569,7 +789,8 @@ main() {
       cmd_docker_deploy
       ;;
     sync-data)
-      cmd_sync_data "$2"
+      shift  # 移除 'sync-data' 命令
+      cmd_sync_data "$@"
       ;;
     help|--help|-h)
       cmd_help
