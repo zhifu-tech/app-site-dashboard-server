@@ -33,6 +33,10 @@ SSH_ALIAS="site-dashboard-server"
 DOCKER_IMAGE_NAME="site-dashboard-server"
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
 
+# Nginx 配置
+NGINX_CONF_PATH="/etc/nginx/conf.d/site-dashboard-server.conf"
+SSL_CERT_DIR="/etc/nginx/ssl"
+
 # 颜色输出定义
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -72,6 +76,18 @@ init_ssh_connection() {
   else
     SSH_OPTIONS=""
     SSH_TARGET="$SERVER_USER@$SERVER_HOST"
+  fi
+}
+
+# 执行 SSH 命令（统一入口）
+# 用法: ssh_exec "command" 或 ssh_exec << 'ENDSSH' ... ENDSSH
+ssh_exec() {
+  if [ $# -eq 0 ]; then
+    # 从标准输入读取（用于 here-document）
+    ssh $SSH_OPTIONS -p ${SERVER_PORT} ${SSH_TARGET}
+  else
+    # 直接执行命令
+    ssh $SSH_OPTIONS -p ${SERVER_PORT} ${SSH_TARGET} "$@"
   fi
 }
 
@@ -251,7 +267,29 @@ cmd_docker_deploy() {
   echo -e "${YELLOW}运行容器...${NC}"
   ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "docker stop site-dashboard-server 2>/dev/null || true"
   ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "docker rm site-dashboard-server 2>/dev/null || true"
-  ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "docker run -d --platform linux/amd64 --name site-dashboard-server -p $APP_PORT:3002 -v $APP_DIR/data:/app/data --restart unless-stopped $DOCKER_IMAGE_NAME:latest"
+  
+  # 检查服务器上是否有 SSL 证书
+  SSL_KEY_PATH="/etc/nginx/ssl/site-dashboard-server.key"
+  SSL_CERT_PATH="/etc/nginx/ssl/site-dashboard-server.crt"
+  HAS_SSL=$(ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "test -f $SSL_KEY_PATH && test -f $SSL_CERT_PATH && echo 'yes' || echo 'no'")
+  
+  # 构建 Docker 运行命令
+  DOCKER_CMD="docker run -d --platform linux/amd64 --name site-dashboard-server -p 127.0.0.1:$APP_PORT:3002 -v $APP_DIR/data:/app/data --restart unless-stopped"
+  
+  # 如果存在 SSL 证书，挂载并启用 HTTPS
+  if [ "$HAS_SSL" = "yes" ]; then
+    echo -e "${BLUE}检测到 SSL 证书，启用 HTTPS 模式${NC}"
+    DOCKER_CMD="$DOCKER_CMD -v $SSL_KEY_PATH:/app/ssl/server.key:ro -v $SSL_CERT_PATH:/app/ssl/server.crt:ro -e HTTPS_ENABLED=true -e SSL_KEY_PATH=/app/ssl/server.key -e SSL_CERT_PATH=/app/ssl/server.crt"
+  else
+    echo -e "${YELLOW}未检测到 SSL 证书，使用 HTTP 模式${NC}"
+    echo -e "${CYAN}提示：如需启用 HTTPS，请将 SSL 证书放置在服务器上的以下路径：${NC}"
+    echo -e "  ${BLUE}私钥: $SSL_KEY_PATH${NC}"
+    echo -e "  ${BLUE}证书: $SSL_CERT_PATH${NC}"
+  fi
+  
+  DOCKER_CMD="$DOCKER_CMD $DOCKER_IMAGE_NAME:latest"
+  
+  ssh $SSH_OPTIONS -p ${SERVER_PORT} "$SSH_TARGET" "$DOCKER_CMD"
 
   # 清理临时文件
   rm -f /tmp/site-dashboard-server.tar.gz
@@ -269,9 +307,86 @@ cmd_docker_deploy() {
   echo -e "  本地访问: ${GREEN}http://127.0.0.1:${APP_PORT}/api/health${NC}"
   echo -e "  外部访问: ${GREEN}http://${SERVER_HOST}:${APP_PORT}/api/health${NC}"
   echo ""
-  echo -e "${CYAN}提示：${NC} 如果使用 Nginx 反向代理，请配置相应的 upstream"
+  echo -e "${CYAN}提示：${NC} 如果使用 Nginx 反向代理，请运行："
+  echo -e "${CYAN}  ${BLUE}./scripts/site-dashboard-server.sh update-nginx${NC}"
 
   print_success "Docker 部署完成"
+}
+
+# ============================================
+# Nginx 配置管理
+# ============================================
+
+# 加载共用脚本库
+APP_COMMON_DIR="$(cd "$PROJECT_ROOT/../app-common" && pwd)"
+[ -f "$APP_COMMON_DIR/scripts/nginx-utils.sh" ] && source "$APP_COMMON_DIR/scripts/nginx-utils.sh"
+[ -f "$APP_COMMON_DIR/scripts/nginx-update.sh" ] && source "$APP_COMMON_DIR/scripts/nginx-update.sh"
+
+# 更新 Nginx 配置
+cmd_update_nginx() {
+  # 确定配置文件路径
+  NGINX_LOCAL_CONF="${1:-$SCRIPT_DIR/site-dashboard-server.nginx.conf}"
+  [ -f "$NGINX_LOCAL_CONF" ] || {
+    print_error "配置文件不存在: ${NGINX_LOCAL_CONF}"
+    echo ""
+    echo "可用的配置文件："
+    ls -1 "$SCRIPT_DIR"/*.nginx*.conf 2>/dev/null || echo "  无"
+    exit 1
+  }
+
+  echo -e "${GREEN}更新 Nginx 配置到服务器 ${SERVER_HOST}...${NC}"
+  echo ""
+
+  # 检查 SSL 证书目录
+  APP_COMMON_DIR="$(cd "$PROJECT_ROOT/../app-common" && pwd)"
+  SSL_CERT_NAME="api.site-dashboard.zhifu.tech"
+  SSL_CERT_LOCAL_DIR="$APP_COMMON_DIR/ssl/${SSL_CERT_NAME}_nginx"
+  SSL_CERT_KEY="$SSL_CERT_LOCAL_DIR/${SSL_CERT_NAME}.key"
+  SSL_CERT_BUNDLE_CRT="$SSL_CERT_LOCAL_DIR/${SSL_CERT_NAME}_bundle.crt"
+  SSL_CERT_BUNDLE_PEM="$SSL_CERT_LOCAL_DIR/${SSL_CERT_NAME}_bundle.pem"
+  
+  SSL_CERT_FILES_EXIST=false
+  if [ -f "$SSL_CERT_KEY" ] && ([ -f "$SSL_CERT_BUNDLE_CRT" ] || [ -f "$SSL_CERT_BUNDLE_PEM" ]); then
+    SSL_CERT_FILES_EXIST=true
+  fi
+
+  # 使用共用脚本库更新配置（包含 SSL 证书）
+  if [ "$SSL_CERT_FILES_EXIST" = true ]; then
+    update_nginx_config \
+      "$NGINX_LOCAL_CONF" \
+      "$NGINX_CONF_PATH" \
+      "$SSH_OPTIONS" \
+      "$SERVER_PORT" \
+      "$SSH_TARGET" \
+      "ssh_exec" \
+      "$SSL_CERT_NAME" \
+      "$SSL_CERT_LOCAL_DIR" \
+      "$SSL_CERT_DIR"
+  else
+    # 不使用 SSL 证书的简化版本
+    prepare_nginx_server "$NGINX_CONF_PATH" "ssh_exec" "$SSH_TARGET"
+    echo -e "${YELLOW}上传配置文件...${NC}"
+    scp $SSH_OPTIONS -P ${SERVER_PORT} "$NGINX_LOCAL_CONF" ${SSH_TARGET}:${NGINX_CONF_PATH}
+    test_and_reload_nginx "$NGINX_CONF_PATH" "ssh_exec" "$SSH_TARGET"
+  fi
+
+  echo ""
+  print_success "Nginx 配置更新完成！"
+  echo -e "${YELLOW}配置文件: ${NGINX_CONF_PATH}${NC}"
+  [ "$SSL_CERT_FILES_EXIST" = true ] && echo -e "${YELLOW}SSL 证书: ${SSL_CERT_DIR}/${SSL_CERT_NAME}.*${NC}"
+  echo ""
+  echo -e "${CYAN}提示:${NC} 确保后端服务（3002 端口）正在运行"
+  echo -e "${CYAN}访问地址: ${BLUE}https://api.site-dashboard.zhifu.tech/api/health${NC}（根据配置的域名）"
+}
+
+# 启动 Nginx
+cmd_start_nginx() {
+  echo -e "${GREEN}检查并启动 Nginx...${NC}"
+  
+  start_nginx_service "ssh_exec" "$SSH_TARGET"
+
+  echo ""
+  print_success "Nginx 服务已就绪"
 }
 
 # ============================================
@@ -741,11 +856,16 @@ cmd_help() {
   echo "可用命令:"
   echo "  dev             启动开发服务器（自动重启）"
   echo "  start           启动生产服务器"
+  echo ""
+  echo "  Nginx 配置:"
+  echo "  update-nginx    更新 Nginx 配置文件到服务器"
+  echo "  start-nginx     启动 Nginx 服务"
+  echo ""
+  echo "  Docker 命令:"
   echo "  docker-build    构建 Docker 镜像"
   echo "  docker-up       启动 Docker 容器"
   echo "  docker-down     停止 Docker 容器"
   echo "  docker-logs     查看 Docker 容器日志"
-  echo "  deploy          部署到服务器（传统方式）"
   echo "  docker-deploy   部署到服务器（Docker 方式）"
   echo ""
   echo "  数据同步:"
@@ -753,6 +873,10 @@ cmd_help() {
   echo "  sync-data down  将服务器数据同步回本地"
   echo ""
   echo "  help            显示帮助信息"
+  echo ""
+  echo "示例:"
+  echo "  ./scripts/site-dashboard-server.sh update-nginx"
+  echo "  ./scripts/site-dashboard-server.sh docker-deploy"
   echo ""
 }
 
@@ -769,6 +893,12 @@ main() {
       ;;
     start)
       cmd_start
+      ;;
+    update-nginx)
+      cmd_update_nginx "$2"
+      ;;
+    start-nginx)
+      cmd_start_nginx
       ;;
     docker-build)
       cmd_docker_build

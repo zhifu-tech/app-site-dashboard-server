@@ -13,15 +13,15 @@ RUN npm ci --only=production
 # 复制源代码
 COPY . .
 
-# 创建数据目录
-RUN mkdir -p data
+# 创建数据目录和 SSL 证书目录
+RUN mkdir -p data ssl
 
 # 暴露端口
 EXPOSE 3002
 
-# 健康检查
+# 健康检查（根据 HTTPS_ENABLED 环境变量选择协议）
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3002/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "const https=require(process.env.HTTPS_ENABLED==='true'?'https':'http');const protocol=process.env.HTTPS_ENABLED==='true'?'https':'http';https.get(protocol+'://localhost:3002/api/health',{rejectUnauthorized:false},(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 
 # 启动服务
 CMD ["node", "server.js"]

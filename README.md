@@ -45,6 +45,18 @@ npm start
 - ✅ 使用 `http://localhost:3002` 或 `http://127.0.0.1:3002` 访问
 - ❌ 不要使用 `http://0.0.0.0:3002`（`0.0.0.0` 是服务器监听地址，不是浏览器访问地址）
 
+### HTTPS 配置（可选）
+
+服务支持 HTTPS 模式，可以通过环境变量配置：
+
+```env
+HTTPS_ENABLED=true
+SSL_KEY_PATH=./ssl/server.key
+SSL_CERT_PATH=./ssl/server.crt
+```
+
+**详细配置说明**：请参考 [HTTPS 配置指南](docs/HTTPS_CONFIG.md)
+
 ## API 文档
 
 ### 健康检查

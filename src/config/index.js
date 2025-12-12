@@ -20,6 +20,13 @@ export const appConfig = {
   port: parseInt(process.env.PORT || "3002", 10),
   nodeEnv: process.env.NODE_ENV || "development",
 
+  // HTTPS 配置
+  https: {
+    enabled: process.env.HTTPS_ENABLED === "true",
+    keyPath: process.env.SSL_KEY_PATH || join(__dirname, "../../ssl/server.key"),
+    certPath: process.env.SSL_CERT_PATH || join(__dirname, "../../ssl/server.crt"),
+  },
+
   // 数据目录配置
   dataDir: process.env.DATA_DIR || join(__dirname, "../../data"),
 

@@ -4,6 +4,9 @@
  */
 
 import express from "express";
+import https from "https";
+import http from "http";
+import fs from "fs";
 import cors from "cors";
 import { appConfig } from "./config/index.js";
 import { requestLogger } from "./middleware/requestLogger.js";
@@ -44,22 +47,54 @@ export function createApp() {
 export async function startServer() {
   try {
     const app = createApp();
+    const protocol = appConfig.https.enabled ? "https" : "http";
 
-    app.listen(appConfig.port, appConfig.host, () => {
+    // 创建服务器（HTTP 或 HTTPS）
+    let server;
+    if (appConfig.https.enabled) {
+      // 检查 SSL 证书文件是否存在
+      try {
+        const key = fs.readFileSync(appConfig.https.keyPath, "utf8");
+        const cert = fs.readFileSync(appConfig.https.certPath, "utf8");
+        
+        server = https.createServer({ key, cert }, app);
+        logger.info("HTTPS 模式已启用", {
+          keyPath: appConfig.https.keyPath,
+          certPath: appConfig.https.certPath,
+        });
+      } catch (error) {
+        logger.error("SSL 证书加载失败，回退到 HTTP 模式", {
+          error: error.message,
+          keyPath: appConfig.https.keyPath,
+          certPath: appConfig.https.certPath,
+        });
+        server = http.createServer(app);
+      }
+    } else {
+      server = http.createServer(app);
+    }
+
+    server.listen(appConfig.port, appConfig.host, () => {
       logger.info("服务器启动成功", {
+        protocol,
         port: appConfig.port,
         host: appConfig.host,
         env: appConfig.nodeEnv,
+        https: appConfig.https.enabled,
       });
 
-      const localUrl = `http://localhost:${appConfig.port}`;
-      const networkUrl = `http://127.0.0.1:${appConfig.port}`;
+      const localUrl = `${protocol}://localhost:${appConfig.port}`;
+      const networkUrl = `${protocol}://127.0.0.1:${appConfig.port}`;
       
       console.log("=".repeat(50));
       console.log(`站点仪表板数据管理服务已启动`);
+      console.log(`协议: ${protocol.toUpperCase()}`);
       console.log(`监听地址: ${appConfig.host}:${appConfig.port}`);
       console.log(`环境: ${appConfig.nodeEnv}`);
       console.log(`数据目录: ${appConfig.dataDir}`);
+      if (appConfig.https.enabled) {
+        console.log(`SSL 证书: ${appConfig.https.certPath}`);
+      }
       console.log("");
       console.log(`访问地址:`);
       console.log(`  - 本地访问: ${localUrl}`);
