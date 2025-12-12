@@ -1,0 +1,21 @@
+name: Vue.js
+url: https://vuejs.org/
+icon: 🟢
+description: 渐进式 JavaScript 框架，用于构建用户界面。Vue 具有简洁的 API、响应式数据绑定、组件化开发等特性，易于学习和使用。支持单文件组件、TypeScript、服务端渲染等功能，适用于构建各种规模的 Web 应用。
+links:
+  - text: 官方文档
+    url: https://vuejs.org/guide/introduction.html
+  - text: 中文文档
+    url: https://cn.vuejs.org/
+  - text: API 参考
+    url: https://vuejs.org/api/
+  - text: 教程
+    url: https://vuejs.org/tutorial/
+tags:
+  - Vue
+  - Vue.js
+  - 前端框架
+  - JavaScript
+  - 组件化
+  - 响应式
+  - Web开发

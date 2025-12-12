@@ -1,0 +1,20 @@
+name: Marble
+url: https://marble.worldlabs.ai/
+icon: 🌐
+description: 由人工智能先驱李飞飞创立的 World Labs 推出的首款商用多模态世界模型产品。支持通过文本、图片、视频或 3D 布局生成可编辑的 3D 虚拟环境。
+links:
+  - text: 概述文档
+    url: https://docs.worldlabs.ai/
+  - text: 博客
+    url: https://www.worldlabs.ai/blog
+  - text: 提示词指南
+    url: https://docs.worldlabs.ai/guides/prompt_guidelines
+  - text: 提示词示例
+    url: /2025/11/19/marble-promotes/
+tags:
+  - AI工具
+  - AI
+  - 3D生成
+  - 世界模型
+  - 多模态
+  - 李飞飞

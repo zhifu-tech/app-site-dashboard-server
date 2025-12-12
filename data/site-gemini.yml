@@ -1,0 +1,18 @@
+name: Google Gemini
+url: https://gemini.google.com/
+icon: 🤖
+description: Google 开发的多模态 AI 助手，基于 Gemini 模型，支持文本、图像、音频和视频等多种输入方式。可以进行对话交流、内容创作、代码编写、图像分析等任务，适用于日常问答、学习辅助、内容创作等场景。
+links:
+  - text: Google AI 官网
+    url: https://ai.google/
+  - text: Gemini API 文档
+    url: https://ai.google.dev/
+tags:
+  - AI工具
+  - AI
+  - Gemini
+  - Google
+  - 多模态
+  - 对话助手
+  - 文本生成
+  - 图像分析

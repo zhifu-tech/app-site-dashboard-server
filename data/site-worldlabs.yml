@@ -1,0 +1,21 @@
+name: World Labs
+url: https://www.worldlabs.ai/
+icon: 🌍
+description: 领先的空间智能公司，构建前沿模型以感知、生成、推理和交互3D世界。其首款产品 Marble 可生成空间一致、高保真、持久的3D世界，支持多模态输入、交互式编辑和多种格式导出。适用于游戏开发、虚拟制作、建筑设计、机器人仿真等场景。
+links:
+  - text: Marble Labs
+    url: https://www.worldlabs.ai/marble-labs
+  - text: 研究博客
+    url: https://www.worldlabs.ai/blog
+  - text: Marble
+    url: https://marble.worldlabs.ai
+tags:
+  - AI机构
+  - AI
+  - World Labs
+  - 空间智能
+  - 3D生成
+  - 世界模型
+  - 多模态
+  - 3D建模
+  - 李飞飞

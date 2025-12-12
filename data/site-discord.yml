@@ -1,0 +1,17 @@
+name: Discord
+url: https://discord.com/quest-home
+icon: 💬
+description: 集成语音、视频与文本交流于一体的全球化社区平台，广泛用于兴趣圈、学习小组、游戏团队和各类线上协作。
+links:
+  - text: AI 社区
+    url: https://discord.com/channels/ai
+  - text: 支持文档
+    url: https://support.discord.com/hc/zh-cn/categories/115000168351-Discord-指南
+tags:
+  - 社区平台
+  - 社区
+  - 协作
+  - 语音
+  - 视频
+  - 团队沟通
+

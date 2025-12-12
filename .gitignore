@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PM2
+.pm2/
+ecosystem.config.cjs.bak
+
+# Data
+# 初始数据文件提交到 Git（方案 C：混合方案）
+# data/*.yml  # 不忽略，提交到 Git
+
+# 运行时生成的文件忽略
+data/sites.json
+data/*.bak
+data/*.tmp
+data/*.log
+
+# Build outputs
+dist/
+build/
+

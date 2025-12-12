@@ -1,0 +1,40 @@
+{
+  "name": "site-dashboard-server",
+  "version": "1.0.0",
+  "description": "站点仪表板数据管理服务端 - 提供站点数据的 CRUD API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "lint": "eslint src/ server.js",
+    "lint:fix": "eslint src/ server.js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\"",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop site-dashboard-server",
+    "pm2:restart": "pm2 restart site-dashboard-server",
+    "pm2:logs": "pm2 logs site-dashboard-server"
+  },
+  "keywords": [
+    "site-dashboard",
+    "api-server",
+    "crud"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "js-yaml": "^4.1.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.15.0",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
+
