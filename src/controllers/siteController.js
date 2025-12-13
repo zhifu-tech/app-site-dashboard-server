@@ -9,15 +9,29 @@ const siteService = new SiteService();
 
 /**
  * 获取所有站点列表
+ * 支持查询参数 full=true 来获取完整的站点数据
  */
 export async function listSites(req, res, next) {
   try {
-    const sites = await siteService.listSites();
-    res.json({
-      success: true,
-      data: sites,
-      count: sites.length,
-    });
+    const full = req.query.full === "true" || req.query.full === "1";
+    
+    if (full) {
+      // 返回完整的站点数据
+      const sites = await siteService.getAllSites();
+      res.json({
+        success: true,
+        data: sites,
+        count: sites.length,
+      });
+    } else {
+      // 返回文件名列表（保持向后兼容）
+      const sites = await siteService.listSites();
+      res.json({
+        success: true,
+        data: sites,
+        count: sites.length,
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -59,20 +73,29 @@ export async function getSite(req, res, next) {
  */
 export async function createSite(req, res, next) {
   try {
-    const { filename } = req.body;
+    const { filename, overwrite } = req.body;
     const siteData = req.body;
 
     // 如果提供了 filename，使用它；否则从 name 生成
     const finalFilename = filename || siteService.generateFilename(siteData.name);
 
-    // 移除 filename 字段（如果存在），因为它不是站点数据的一部分
+    // 移除 filename 和 overwrite 字段（如果存在），因为它们不是站点数据的一部分
     delete siteData.filename;
+    delete siteData.overwrite;
 
-    const site = await siteService.createSite(finalFilename, siteData);
-    res.status(201).json({
+    // 检查文件是否存在，如果存在且未指定覆盖，则自动覆盖
+    const shouldOverwrite = overwrite === true || overwrite === "true";
+
+    const site = await siteService.createSite(finalFilename, siteData, shouldOverwrite);
+    
+    // 如果文件已存在且被覆盖，返回 200，否则返回 201
+    const statusCode = shouldOverwrite ? 200 : 201;
+    
+    res.status(statusCode).json({
       success: true,
       data: site,
       filename: finalFilename,
+      overwritten: shouldOverwrite,
     });
   } catch (error) {
     next(error);
@@ -115,4 +138,5 @@ export async function deleteSite(req, res, next) {
     next(error);
   }
 }
+
 

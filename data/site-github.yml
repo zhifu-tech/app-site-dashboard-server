@@ -1,0 +1,20 @@
+group: dev-tools
+name: GitHub
+url: https://github.com
+icon: 🐙
+description: GitHub 是全球最大的代码托管和协作平台，基于 Git 版本控制系统。开发者可在此托管代码仓库、进行版本控制、协作开发、项目管理，并参与开源项目。平台集成了代码审查、问题跟踪、CI/CD流水线、安全扫描等功能，是个人开发者、团队和开源社区进行软件开发的必备工具。
+links:
+  - text: 官方文档
+    url: https://docs.github.com
+  - text: GitHub Blog
+    url: https://github.blog
+  - text: GitHub Marketplace
+    url: https://github.com/marketplace
+tags:
+  - 代码托管
+  - 版本控制
+  - 开源协作
+  - Git
+  - 软件开发
+  - DevOps
+  - CI/CD

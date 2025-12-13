@@ -28,11 +28,19 @@ function getSiteFilePath(filename) {
 function validateSiteData(data) {
   const errors = [];
 
-  if (!data.name || typeof data.name !== "string" || data.name.trim().length === 0) {
+  if (
+    !data.name ||
+    typeof data.name !== "string" ||
+    data.name.trim().length === 0
+  ) {
     errors.push("name 字段是必需的，且必须是非空字符串");
   }
 
-  if (!data.url || typeof data.url !== "string" || data.url.trim().length === 0) {
+  if (
+    !data.url ||
+    typeof data.url !== "string" ||
+    data.url.trim().length === 0
+  ) {
     errors.push("url 字段是必需的，且必须是非空字符串");
   }
 
@@ -63,13 +71,43 @@ export class SiteService {
     try {
       const files = await readdir(appConfig.dataDir);
       const siteFiles = files
-        .filter((file) => file.startsWith("site-") && file.endsWith(".yml"))
+        .filter(file => file.startsWith("site-") && file.endsWith(".yml"))
         .sort();
 
       return siteFiles;
     } catch (error) {
       logger.error("获取站点列表失败", { error: error.message });
       throw new Error("获取站点列表失败");
+    }
+  }
+
+  /**
+   * 获取所有站点的完整数据
+   * 一次性返回所有站点的详细信息，避免多次请求
+   */
+  async getAllSites() {
+    try {
+      const siteFiles = await this.listSites();
+      const sitesPromises = siteFiles.map(async (filename) => {
+        try {
+          const data = await this.getSite(filename);
+          return data;
+        } catch (error) {
+          logger.warn("获取站点数据失败，跳过", { filename, error: error.message });
+          return null;
+        }
+      });
+
+      const sites = await Promise.all(sitesPromises);
+      
+      // 过滤掉失败的数据
+      const validSites = sites.filter(site => site !== null && site?.name && site?.url);
+      
+      logger.info("获取所有站点数据成功", { total: siteFiles.length, valid: validSites.length });
+      return validSites;
+    } catch (error) {
+      logger.error("获取所有站点数据失败", { error: error.message });
+      throw new Error("获取所有站点数据失败");
     }
   }
 
@@ -85,7 +123,11 @@ export class SiteService {
       };
 
       const indexPath = join(appConfig.dataDir, "sites.json");
-      await writeFile(indexPath, JSON.stringify(index, null, 2) + "\n", "utf-8");
+      await writeFile(
+        indexPath,
+        JSON.stringify(index, null, 2) + "\n",
+        "utf-8"
+      );
 
       logger.info("站点索引生成成功", { count: siteFiles.length });
       return index;
@@ -120,8 +162,11 @@ export class SiteService {
 
   /**
    * 创建站点
+   * @param {string} filename - 文件名
+   * @param {Object} data - 站点数据
+   * @param {boolean} overwrite - 是否覆盖已存在的文件，默认为 false
    */
-  async createSite(filename, data) {
+  async createSite(filename, data, overwrite = false) {
     try {
       // 验证数据
       const errors = validateSiteData(data);
@@ -132,12 +177,24 @@ export class SiteService {
       const filePath = getSiteFilePath(filename);
 
       // 检查文件是否已存在
-      try {
-        await readFile(filePath);
-        throw new Error(`站点文件已存在: ${filename}`);
-      } catch (error) {
-        if (error.code !== "ENOENT") {
-          throw error;
+      if (!overwrite) {
+        try {
+          await readFile(filePath);
+          throw new Error(`站点文件已存在: ${filename}`);
+        } catch (error) {
+          if (error.code !== "ENOENT") {
+            throw error;
+          }
+        }
+      } else {
+        // 如果允许覆盖，检查文件是否存在并记录日志
+        try {
+          await readFile(filePath);
+          logger.info("站点文件已存在，将覆盖", { filename });
+        } catch (error) {
+          if (error.code !== "ENOENT") {
+            throw error;
+          }
         }
       }
 
@@ -150,7 +207,7 @@ export class SiteService {
 
       await writeFile(filePath, yamlContent, "utf-8");
 
-      logger.info("站点创建成功", { filename });
+      logger.info(overwrite ? "站点更新成功" : "站点创建成功", { filename });
       return data;
     } catch (error) {
       logger.error("创建站点失败", { filename, error: error.message });
@@ -239,4 +296,3 @@ export class SiteService {
     return `site-${normalizedName}.yml`;
   }
 }
-
