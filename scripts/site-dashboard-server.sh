@@ -384,8 +384,8 @@ detect_git_changes() {
     local status="${line:0:2}"
     local file="${line:3}"
     
-    # 只处理 data 目录下的 yml 文件
-    if [[ "$file" != ${rel_data_dir}/site-*.yml ]]; then
+    # 处理 data 目录下的文件（所有文件类型）
+    if [[ "$file" != ${rel_data_dir}/* ]]; then
       continue
     fi
     
@@ -416,11 +416,11 @@ detect_git_changes() {
         fi
         ;;
       " D"|"D "|"DD")
-        # 已删除的文件
-        GIT_DELETED_FILES="${GIT_DELETED_FILES}${file}"$'\n'
-        ;;
+      # 已删除的文件
+      GIT_DELETED_FILES="${GIT_DELETED_FILES}${file}"$'\n'
+      ;;
     esac
-  done < <(git -C "$PROJECT_ROOT" status --porcelain "$rel_data_dir/site-*.yml" 2>/dev/null)
+  done < <(git -C "$PROJECT_ROOT" status --porcelain "$rel_data_dir" 2>/dev/null)
   
   # 清理换行符
   GIT_ADDED_FILES=$(echo "$GIT_ADDED_FILES" | grep -v '^$')
@@ -480,6 +480,7 @@ cmd_sync_data() {
       echo -e "${CYAN}说明:${NC}"
       echo "  - 默认情况下，只同步 Git 中变更的文件（新增、修改、删除）"
       echo "  - 使用 --force 选项可以强制同步所有文件（适用于首次同步）"
+      echo "  - 同步 data/ 目录下的所有文件（包括 .yml、.mdc 等所有类型）"
       echo ""
       ;;
     *)
@@ -577,15 +578,16 @@ cmd_sync_data_to_server() {
     echo ""
   fi
   
-  # 统计本地数据文件
-  YML_COUNT=$(find "$DATA_DIR" -name "site-*.yml" 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$YML_COUNT" -eq 0 ]; then
-    print_warning "未找到数据文件（site-*.yml）"
+  # 统计本地数据文件（所有文件）
+  local file_count
+  file_count=$(find "$DATA_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$file_count" -eq 0 ]; then
+    print_warning "数据目录为空: $DATA_DIR"
     echo "数据目录: $DATA_DIR"
     exit 1
   fi
   
-  echo -e "${YELLOW}本地数据文件总数: ${YML_COUNT} 个${NC}"
+  echo -e "${YELLOW}本地数据文件总数: ${file_count} 个${NC}"
   echo ""
   
   # 确保服务器上的数据目录存在
@@ -599,11 +601,20 @@ cmd_sync_data_to_server() {
   if [ "$force" = "true" ]; then
     # 强制模式：同步所有文件
     print_info "同步所有数据文件（强制模式）..."
-    if ! scp $SSH_OPTIONS -P "${SERVER_PORT}" "$DATA_DIR"/site-*.yml "$SSH_TARGET:$APP_DIR/data/"; then
+    local sync_count=0
+    while IFS= read -r file; do
+      if [ -f "$file" ]; then
+        if scp $SSH_OPTIONS -P "${SERVER_PORT}" "$file" "$SSH_TARGET:$APP_DIR/data/" 2>/dev/null; then
+          sync_count=$((sync_count + 1))
+          print_success "$(basename "$file")"
+        else
+          print_error "同步失败: $(basename "$file")"
+        fi
+      fi
+    done < <(find "$DATA_DIR" -type f)
+    
+    if [ "$sync_count" -eq 0 ]; then
       print_error "数据文件同步失败"
-      echo ""
-      echo "手动同步命令:"
-      echo "  scp $SSH_OPTIONS -P ${SERVER_PORT} $DATA_DIR/site-*.yml $SSH_TARGET:$APP_DIR/data/"
       return 1
     fi
   elif [ "$use_git" = "true" ] && ([ "$added_count" -gt 0 ] || [ "$modified_count" -gt 0 ] || [ "$deleted_count" -gt 0 ]); then
@@ -642,11 +653,20 @@ cmd_sync_data_to_server() {
   else
     # 同步所有文件（无 Git 或无可检测的变更）
     print_info "同步所有数据文件..."
-    if ! scp $SSH_OPTIONS -P "${SERVER_PORT}" "$DATA_DIR"/site-*.yml "$SSH_TARGET:$APP_DIR/data/"; then
+    local sync_count=0
+    while IFS= read -r file; do
+      if [ -f "$file" ]; then
+        if scp $SSH_OPTIONS -P "${SERVER_PORT}" "$file" "$SSH_TARGET:$APP_DIR/data/" 2>/dev/null; then
+          sync_count=$((sync_count + 1))
+          print_success "$(basename "$file")"
+        else
+          print_error "同步失败: $(basename "$file")"
+        fi
+      fi
+    done < <(find "$DATA_DIR" -type f)
+    
+    if [ "$sync_count" -eq 0 ]; then
       print_error "数据文件同步失败"
-      echo ""
-      echo "手动同步命令:"
-      echo "  scp $SSH_OPTIONS -P ${SERVER_PORT} $DATA_DIR/site-*.yml $SSH_TARGET:$APP_DIR/data/"
       return 1
     fi
   fi
@@ -654,11 +674,11 @@ cmd_sync_data_to_server() {
   # 验证同步结果
   print_info "验证同步结果..."
   local remote_count
-  remote_count=$(ssh $SSH_OPTIONS -p "${SERVER_PORT}" "$SSH_TARGET" "ls -1 $APP_DIR/data/site-*.yml 2>/dev/null | wc -l | tr -d ' '")
+  remote_count=$(ssh $SSH_OPTIONS -p "${SERVER_PORT}" "$SSH_TARGET" "find $APP_DIR/data -type f 2>/dev/null | wc -l | tr -d ' '")
   
   echo ""
   print_info "同步统计:"
-  echo "  本地文件总数: $YML_COUNT"
+  echo "  本地文件总数: $file_count"
   echo "  服务器文件总数: $remote_count"
   echo "  服务器路径: $APP_DIR/data"
   
@@ -691,12 +711,12 @@ cmd_sync_data_from_server() {
     return 1
   fi
   
-  # 统计服务器数据文件
+  # 统计服务器数据文件（所有文件）
   local remote_count
-  remote_count=$(ssh $SSH_OPTIONS -p "${SERVER_PORT}" "$SSH_TARGET" "ls -1 $APP_DIR/data/site-*.yml 2>/dev/null | wc -l | tr -d ' '")
+  remote_count=$(ssh $SSH_OPTIONS -p "${SERVER_PORT}" "$SSH_TARGET" "find $APP_DIR/data -type f 2>/dev/null | wc -l | tr -d ' '")
   
   if [ "$remote_count" -eq 0 ]; then
-    print_warning "服务器上未找到数据文件（site-*.yml）"
+    print_warning "服务器上未找到数据文件"
     echo "服务器路径: $APP_DIR/data"
     return 1
   fi
@@ -711,9 +731,9 @@ cmd_sync_data_from_server() {
     return 1
   fi
   
-  # 统计本地数据文件
+  # 统计本地数据文件（所有文件）
   local local_count
-  local_count=$(find "$data_dir" -name "site-*.yml" 2>/dev/null | wc -l | tr -d ' ')
+  local_count=$(find "$data_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
   print_info "本地数据文件: ${local_count} 个"
   echo ""
   
@@ -723,14 +743,26 @@ cmd_sync_data_from_server() {
   register_cleanup "$temp_server_data"
   print_info "下载服务器数据到临时目录..."
   
-  # 下载服务器数据到临时目录
-  if ! scp $SSH_OPTIONS -P "${SERVER_PORT}" "$SSH_TARGET:$APP_DIR/data/site-*.yml" "$temp_server_data/"; then
-    print_error "下载服务器数据失败"
+  # 下载服务器数据到临时目录（所有文件）
+  # 先获取服务器上的文件列表，然后逐个下载
+  local remote_files
+  remote_files=$(ssh $SSH_OPTIONS -p "${SERVER_PORT}" "$SSH_TARGET" "find $APP_DIR/data -type f" 2>/dev/null)
+  
+  if [ -z "$remote_files" ]; then
+    print_warning "服务器上未找到文件"
     return 1
   fi
   
+  echo "$remote_files" | while IFS= read -r remote_file; do
+    if [ -n "$remote_file" ]; then
+      local filename
+      filename=$(basename "$remote_file")
+      scp $SSH_OPTIONS -P "${SERVER_PORT}" "$SSH_TARGET:$remote_file" "$temp_server_data/" 2>/dev/null || true
+    fi
+  done
+  
   local server_downloaded_count
-  server_downloaded_count=$(find "$temp_server_data" -name "site-*.yml" 2>/dev/null | wc -l | tr -d ' ')
+  server_downloaded_count=$(find "$temp_server_data" -type f 2>/dev/null | wc -l | tr -d ' ')
   print_success "已下载 $server_downloaded_count 个服务器文件"
   echo ""
   
@@ -742,8 +774,8 @@ cmd_sync_data_from_server() {
   local added_count=0
   local kept_local_count=0
   
-  # 处理服务器上的文件（更新或新增）
-  for server_file in "$temp_server_data"/site-*.yml; do
+  # 处理服务器上的文件（更新或新增）- 所有文件类型
+  while IFS= read -r server_file; do
     [ ! -f "$server_file" ] && continue
     
     local filename
@@ -759,10 +791,10 @@ cmd_sync_data_from_server() {
       cp "$server_file" "$local_file"
       added_count=$((added_count + 1))
     fi
-  done
+  done < <(find "$temp_server_data" -type f)
   
-  # 保留本地独有的文件（服务器上没有的文件）
-  for local_file in "$data_dir"/site-*.yml; do
+  # 保留本地独有的文件（服务器上没有的文件）- 所有文件类型
+  while IFS= read -r local_file; do
     [ ! -f "$local_file" ] && continue
     
     local filename
@@ -773,7 +805,7 @@ cmd_sync_data_from_server() {
       # 服务器上没有此文件，保留本地版本
       kept_local_count=$((kept_local_count + 1))
     fi
-  done
+  done < <(find "$data_dir" -type f)
   
   # 删除所有备份目录
   print_info "清理备份目录..."
@@ -788,9 +820,9 @@ cmd_sync_data_from_server() {
   fi
   echo ""
   
-  # 验证合并结果
+  # 验证合并结果（所有文件）
   local final_count
-  final_count=$(find "$data_dir" -name "site-*.yml" 2>/dev/null | wc -l | tr -d ' ')
+  final_count=$(find "$data_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
   
   print_success "数据合并完成！"
   echo ""
