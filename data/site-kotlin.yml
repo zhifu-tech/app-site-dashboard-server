@@ -1,0 +1,17 @@
+group: dev-tools
+name: Kotlin
+url: https://kotlinlang.org
+icon: 🦸‍♂️
+description: Kotlin 是一种现代、静态类型编程语言，旨在简化开发，提升生产力。它具有简洁的语法、与 Java 兼容性好、支持跨平台开发，广泛用于安卓开发、后端开发及多平台应用开发。
+links:
+  - text: 官方文档
+    url: https://kotlinlang.org/docs/home.html
+  - text: GitHub 仓库
+    url: https://github.com/JetBrains/kotlin
+tags:
+  - 编程语言
+  - Kotlin
+  - Android 开发
+  - 后端开发
+  - 跨平台
+  - JetBrains
