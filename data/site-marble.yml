@@ -1,6 +1,6 @@
 name: Marble
 url: https://marble.worldlabs.ai/
-icon: 🌐
+icon: https://marble.worldlabs.ai/favicon.ico
 description: 由人工智能先驱李飞飞创立的 World Labs 推出的首款商用多模态世界模型产品。支持通过文本、图片、视频或 3D 布局生成可编辑的 3D 虚拟环境。
 links:
   - text: 概述文档

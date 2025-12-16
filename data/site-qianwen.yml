@@ -1,6 +1,6 @@
 name: 阿里千问
 url: https://www.tongyi.com/qianwen
-icon: ✨
+icon: https://www.tongyi.com/favicon.ico
 description: 阿里通义千问大模型打造的AI对话助手，支持问答、写作、代码、翻译、录音、PPT创作、文档处理、音视频速读等多种功能。适用于日常对话、内容创作、办公效率提升等场景。
 links:
   - text: 官网首页

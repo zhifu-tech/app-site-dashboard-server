@@ -1,6 +1,6 @@
 name: Discord
 url: https://discord.com/quest-home
-icon: 💬
+icon: https://discord.com/favicon.ico
 description: 集成语音、视频与文本交流于一体的全球化社区平台，广泛用于兴趣圈、学习小组、游戏团队和各类线上协作。
 links:
   - text: AI 社区

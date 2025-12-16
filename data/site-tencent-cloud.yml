@@ -1,6 +1,6 @@
 name: 腾讯云
 url: https://cloud.tencent.com/
-icon: ☁️
+icon: https://cloud.tencent.com/favicon.ico
 description: 腾讯云是腾讯公司推出的云计算服务平台，提供云服务器、云数据库、云存储、CDN、人工智能、大数据等全方位的云服务。适用于企业数字化转型、应用开发部署、数据存储分析等多种场景，助力企业快速上云。
 links:
   - text: 产品文档

@@ -1,6 +1,6 @@
 name: ChatGPT
 url: https://chatgpt.com/
-icon: 💬
+icon: https://chatgpt.com/favicon.ico
 description: OpenAI 开发的对话式人工智能助手，基于 GPT 模型，支持自然语言对话、文本生成、代码编写、问题解答等多种功能。适用于日常问答、内容创作、学习辅助等场景。
 links:
   - text: OpenAI 官网

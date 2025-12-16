@@ -1,6 +1,6 @@
 name: Google Gemini
 url: https://gemini.google.com/
-icon: 🤖
+icon: https://gemini.google.com/favicon.ico
 description: Google 开发的多模态 AI 助手，基于 Gemini 模型，支持文本、图像、音频和视频等多种输入方式。可以进行对话交流、内容创作、代码编写、图像分析等任务，适用于日常问答、学习辅助、内容创作等场景。
 links:
   - text: Google AI 官网

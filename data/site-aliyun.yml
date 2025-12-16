@@ -1,6 +1,6 @@
 name: 阿里云
 url: https://www.aliyun.com/
-icon: ☁️
+icon: https://www.aliyun.com/favicon.ico
 description: 阿里云是阿里巴巴集团推出的云计算服务平台，提供云服务器、云数据库、云存储、CDN、人工智能、大数据、安全等全方位的云服务。适用于企业数字化转型、应用开发部署、数据存储分析等多种场景，助力企业快速上云。
 links:
   - text: 产品文档

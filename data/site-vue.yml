@@ -1,6 +1,6 @@
 name: Vue.js
 url: https://vuejs.org/
-icon: 🟢
+icon: https://vuejs.org/favicon.ico
 description: 渐进式 JavaScript 框架，用于构建用户界面。Vue 具有简洁的 API、响应式数据绑定、组件化开发等特性，易于学习和使用。支持单文件组件、TypeScript、服务端渲染等功能，适用于构建各种规模的 Web 应用。
 links:
   - text: 官方文档

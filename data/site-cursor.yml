@@ -1,6 +1,6 @@
 name: Cursor
 url: https://cursor.com/
-icon: 🤖
+icon: https://cursor.com/favicon.ico
 description: 基于 VS Code 的 AI 代码编辑器，集成强大的 AI 代码生成、补全和重构能力。支持对话式编程、代码解释、错误修复、测试生成等功能。适用于日常开发、代码审查、快速原型开发等场景。
 links:
   - text: Cursor 官网

@@ -23,12 +23,6 @@
 
 ### 必需字段
 
-#### `group` (字符串)
-
-- **说明**：站点所属的分组 ID
-- **值**：必须对应 `data.yml` 中定义的 `groups[].id`
-- **示例**：`ai-tools`、`community`、`dev-tools`、`design-tools`、`other-tools`
-
 #### `name` (字符串)
 
 - **说明**：站点显示名称
@@ -43,9 +37,10 @@
 
 #### `icon` (字符串)
 
-- **说明**：站点图标，使用 Emoji
-- **格式**：单个 Emoji 字符
-- **示例**：`💬`、`💎`、`🌐`、`🤖`
+- **说明**：站点图标，使用站点的 favicon URL
+- **格式**：完整的 HTTPS URL，指向站点的 favicon
+- **示例**：`https://chatgpt.com/favicon.ico`、`https://github.com/favicon.ico`
+- **推荐**：使用站点自己的 `/favicon.ico` 路径，格式为 `https://{域名}/favicon.ico`
 
 #### `description` (字符串)
 
@@ -88,10 +83,9 @@
 ### 示例 1：AI 工具站点
 
 ```yaml
-group: ai-tools
 name: ChatGPT
 url: https://chatgpt.com/
-icon: 💬
+icon: https://chatgpt.com/favicon.ico
 description: OpenAI 开发的对话式人工智能助手，基于 GPT 模型，支持自然语言对话、文本生成、代码编写、问题解答等多种功能。适用于日常问答、内容创作、学习辅助等场景。
 links:
   - text: OpenAI 官网
@@ -109,10 +103,9 @@ tags:
 ### 示例 2：社区平台站点
 
 ```yaml
-group: community
 name: Discord
 url: https://discord.com/quest-home
-icon: 💬
+icon: https://discord.com/favicon.ico
 description: 集成语音、视频与文本交流于一体的全球化社区平台，广泛用于兴趣圈、学习小组、游戏团队和各类线上协作。
 links:
   - text: AI 社区
@@ -130,10 +123,9 @@ tags:
 ### 示例 3：简洁版本（无额外链接）
 
 ```yaml
-group: ai-tools
 name: 腾讯元宝
 url: https://yuanbao.tencent.com/chat
-icon: 💎
+icon: https://yuanbao.tencent.com/favicon.ico
 description: 腾讯推出的智能助手，可以为你答疑解惑、精读文档、尽情创作。支持对话交流、文档分析、内容生成等功能，让元宝助你轻松工作，多点生活。
 tags:
   - AI
@@ -145,9 +137,8 @@ tags:
 
 ## 创建步骤
 
-1. **确定分组**：查看 `data.yml` 中的 `groups`，选择合适的 `id`
-2. **创建文件**：在 `source/dashboard/data/` 目录下创建 `site-{名称}.yml`
-3. **填写必需字段**：`group`、`name`、`url`、`icon`、`description`
+1. **创建文件**：在 `source/dashboard/data/` 目录下创建 `site-{名称}.yml`
+2. **填写必需字段**：`name`、`url`、`icon`、`description`
 4. **添加可选字段**：根据需要添加 `links` 和 `tags`
 5. **验证格式**：确保 YAML 格式正确（缩进使用 2 个空格）
 6. **自动索引**：文件会自动被 `generate-dashboard-index.js` 扫描并添加到索引
@@ -159,11 +150,7 @@ tags:
    - 字符串值如果包含特殊字符，建议使用引号包裹
    - 数组项使用 `-` 开头
 
-2. **group 字段**：
-   - 必须与 `data.yml` 中定义的 `id` 完全匹配
-   - 如果分组不存在，站点将被忽略
-
-3. **URL 格式**：
+2. **URL 格式**：
    - 必须使用完整的 HTTPS URL
    - 确保 URL 可访问
 
@@ -178,9 +165,9 @@ tags:
    - 建议 3-8 个标签
 
 6. **图标选择**：
-   - 使用单个 Emoji
-   - 选择与站点相关的图标
-   - 可以在 [Emoji 列表](https://emojipedia.org/) 中查找
+   - 使用站点的 favicon URL
+   - 推荐使用站点自己的 `/favicon.ico` 路径，格式为 `https://{域名}/favicon.ico`
+   - 确保 URL 可访问
 
 ## 验证清单
 
@@ -188,8 +175,8 @@ tags:
 
 - [ ] 文件名格式正确：`site-{名称}.yml`
 - [ ] 所有必需字段都已填写
-- [ ] `group` 值在 `data.yml` 中存在
 - [ ] `url` 格式正确且可访问
+- [ ] `icon` URL 格式正确且可访问
 - [ ] YAML 格式正确（缩进、语法）
 - [ ] 描述清晰、完整
 - [ ] 标签相关且有用
@@ -197,6 +184,5 @@ tags:
 
 ## 相关文件
 
-- `data.yml` - 分组配置
 - `sites-index.json` - 站点索引（自动生成）
 - `generate-dashboard-index.js` - 索引生成脚本

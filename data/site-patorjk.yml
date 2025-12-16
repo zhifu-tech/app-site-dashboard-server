@@ -1,6 +1,6 @@
 name: Patorjk
 url: https://patorjk.com/
-icon: 🎨
+icon: https://patorjk.com/favicon.ico
 description: 提供多种在线工具和应用的网站，包括 ASCII Art 文本生成器、编程工具和有趣的 Web 应用。最著名的是 ASCII Art Generator，可以将文本转换为各种风格的 ASCII 艺术字，支持多种字体和样式。适合开发者、设计师和创意工作者使用。
 links:
   - text: ASCII Art Generator
