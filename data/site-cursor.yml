@@ -5,10 +5,14 @@ description: 基于 VS Code 的 AI 代码编辑器，集成强大的 AI 代码�
 links:
   - text: Cursor 官网
     url: https://cursor.com/
+  - text: Cursor 文档(中文)
+    url: https://docs.cursor.com/zh/welcome
   - text: Agents
     url: https://cursor.com/agents
   - text: dashboard
     url: https://cursor.com/dashboard
+  - text: cursor 进行 swift 开发配置
+    url: https://cursor.com/docs/configuration/languages/ios-macos-swift
 tags:
   - AI工具
   - AI

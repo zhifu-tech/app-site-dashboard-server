@@ -1,0 +1,15 @@
+name: SweetPad 文档
+url: https://sweetpad.hyzyla.dev/docs/intro
+icon: https://sweetpad.hyzyla.dev/favicon.ico
+description: SweetPad 是一款 VS Code 扩展，用于在 VS Code 中构建和运行 Xcode 项目，支持 iOS、macOS 与 watchOS 应用开发。它基于 Xcode CLI 工具，并集成 xcode-build-tools、xcbeautify、swift-format 等开源工具。该文档提供功能介绍、安装配置与使用说明，帮助开发者高效进行 Swift 与 Apple 平台开发。
+links:
+  - text: SweetPad 官网
+    url: https://sweetpad.hyzyla.dev
+tags:
+  - VSCode
+  - Xcode
+  - iOS
+  - macOS
+  - Swift
+  - 开发工具
+  - 文档

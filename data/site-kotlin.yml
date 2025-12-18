@@ -7,6 +7,8 @@ links:
     url: https://kotlinlang.org/docs/home.html
   - text: GitHub 仓库
     url: https://github.com/JetBrains/kotlin
+  - text: klibs -  KMP 库的搜索平台
+    url: https://klibs.io/
 tags:
   - 编程语言
   - Kotlin
